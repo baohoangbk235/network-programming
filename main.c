@@ -176,7 +176,7 @@ void delete_view(GtkButton * button, gpointer userdata){
     if (gtk_tree_selection_get_selected(
         GTK_TREE_SELECTION(w->selection), &model, &iter)) {
         gtk_tree_model_get(model, &iter, COLUMN_ID, &value,  -1);
-        // gtk_list_store_remove(model, &iter);
+        gtk_list_store_remove(model, &iter);
         int sockfd = w->sockfd;
         send_request(sockfd, DEL);
         if (check_request(sockfd, REQ)){
