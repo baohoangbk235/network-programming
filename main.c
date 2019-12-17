@@ -7,7 +7,6 @@
 #include "database.h"
 #include "utils.h"
 
-#define MAX 80
 
 enum {
   COLUMN_ID = 0,
@@ -15,6 +14,7 @@ enum {
   COLUMN_MATH,
   COLUMN_PHYSIC,
   COLUMN_CHEMISTRY,
+  COLUMN_ROLE,
   N_COLUMNS
 };
 
@@ -38,7 +38,8 @@ struct AddWin{
     GtkWidget * math_entry;
     GtkWidget * physic_entry;
     GtkWidget * chemistry_entry;
-
+    GtkToggleButton * user_check;
+    GtkToggleButton * admin_check;
     GtkWidget * confirm_button;
     GtkWidget * cancel_button;
     GtkWidget * list;
@@ -73,6 +74,8 @@ void log_out(GtkButton * button, gpointer userdata);
 
 void refresh(GtkButton * button, gpointer userdata);
 
+void on_user_tickbox_toggled(GtkToggleButton * togglebutton , gpointer userdata);
+
 void init_list(GtkWidget * list){
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *id_column;
@@ -80,6 +83,7 @@ void init_list(GtkWidget * list){
     GtkTreeViewColumn *physic_column;
     GtkTreeViewColumn *chemistry_column;
     GtkTreeViewColumn *name_column;
+    GtkTreeViewColumn *role_column;
     GtkListStore *store;
 
     gtk_widget_set_vexpand (GTK_WIDGET (list), TRUE);
@@ -109,7 +113,7 @@ void init_list(GtkWidget * list){
     gtk_tree_view_append_column (GTK_TREE_VIEW(list), math_column);
     gtk_tree_view_column_set_expand (math_column, TRUE);
     gtk_tree_view_column_set_sizing (math_column, GTK_TREE_VIEW_COLUMN_FIXED);
-    gtk_tree_view_column_set_fixed_width (math_column, 640/5);
+    gtk_tree_view_column_set_fixed_width (math_column, 640*3/20);
 
     physic_column = gtk_tree_view_column_new_with_attributes("Physic",
           renderer, "text", COLUMN_PHYSIC, NULL);
@@ -117,7 +121,7 @@ void init_list(GtkWidget * list){
     gtk_tree_view_append_column (GTK_TREE_VIEW(list), physic_column);
     gtk_tree_view_column_set_expand (physic_column, TRUE);
     gtk_tree_view_column_set_sizing (physic_column, GTK_TREE_VIEW_COLUMN_FIXED);
-    gtk_tree_view_column_set_fixed_width (physic_column, 640/5);
+    gtk_tree_view_column_set_fixed_width (physic_column, 640*3/20);
 
     chemistry_column = gtk_tree_view_column_new_with_attributes("Chemistry",
           renderer, "text", COLUMN_CHEMISTRY, NULL);
@@ -125,14 +129,23 @@ void init_list(GtkWidget * list){
     gtk_tree_view_append_column (GTK_TREE_VIEW(list), chemistry_column);
     gtk_tree_view_column_set_expand (chemistry_column, TRUE);
     gtk_tree_view_column_set_sizing (chemistry_column, GTK_TREE_VIEW_COLUMN_FIXED);
-    gtk_tree_view_column_set_fixed_width (chemistry_column, 640/5);
+    gtk_tree_view_column_set_fixed_width (chemistry_column, 640*3/20);
+
+    role_column = gtk_tree_view_column_new_with_attributes("Role",
+          renderer, "text", COLUMN_ROLE, NULL);
+    gtk_tree_view_column_set_sort_column_id (role_column, COLUMN_ROLE);
+    gtk_tree_view_append_column (GTK_TREE_VIEW(list), role_column);
+    gtk_tree_view_column_set_expand (role_column, TRUE);
+    gtk_tree_view_column_set_sizing (role_column, GTK_TREE_VIEW_COLUMN_FIXED);
+    gtk_tree_view_column_set_fixed_width (role_column, 640*3/20);
 
     store = gtk_list_store_new(N_COLUMNS,  
                                 G_TYPE_INT,
                                 G_TYPE_STRING,
                                 G_TYPE_DOUBLE,
                                 G_TYPE_DOUBLE,
-                                G_TYPE_DOUBLE);
+                                G_TYPE_DOUBLE,
+                                G_TYPE_STRING);
 
     gtk_tree_view_set_model(GTK_TREE_VIEW(list), GTK_TREE_MODEL(store));
     g_object_unref(store);
@@ -142,12 +155,20 @@ void add_to_list(GtkWidget *list,   const gint id,
                                     const gchar * name,
                                     const gdouble math, 
                                     const gdouble physic,
-                                    const gdouble chemistry) {
+                                    const gdouble chemistry,
+                                    const gint role) {
   GtkListStore *store;
   GtkTreeIter iter;
 
   store = GTK_LIST_STORE(gtk_tree_view_get_model
       (GTK_TREE_VIEW(list)));
+
+    char role_string[10];
+    bzero(role_string, 5);
+    if (role == 1){
+        strcpy(role_string, "Admin");
+    }else 
+        strcpy(role_string, "User");
 
   gtk_list_store_append(store, &iter);
   gtk_list_store_set(store, &iter,  COLUMN_ID, id, 
@@ -155,6 +176,7 @@ void add_to_list(GtkWidget *list,   const gint id,
                                     COLUMN_MATH, math, 
                                     COLUMN_PHYSIC, physic, 
                                     COLUMN_CHEMISTRY, chemistry,
+                                    COLUMN_ROLE, role_string,
                                     -1);
 }
 
@@ -178,7 +200,6 @@ void delete_view(GtkButton * button, gpointer userdata){
     GtkTreeIter iter;
     GtkTreeModel *model;
     gint value;
-    char buff[MAX];
     if (gtk_tree_selection_get_selected(
         GTK_TREE_SELECTION(w->selection), &model, &iter)) {
         gtk_tree_model_get(model, &iter, COLUMN_ID, &value,  -1);
@@ -202,7 +223,10 @@ void add_confirm(GtkButton * button ,gpointer userdata){
     st.math = atof(gtk_entry_get_text(GTK_ENTRY(w->math_entry)));
     st.physic = atof(gtk_entry_get_text(GTK_ENTRY(w->physic_entry)));
     st.chemistry = atof(gtk_entry_get_text(GTK_ENTRY(w->chemistry_entry)));
-    st.role = ADMIN;
+    if (gtk_toggle_button_get_active(w->admin_check))
+        st.role = ADMIN;
+    else 
+        st.role = USER;
     send_request(sockfd, ADD);
     char buff[256];
     if (check_request(sockfd,REQ)){
@@ -254,6 +278,8 @@ int main(int argc, char *argv[])
     GtkWidget       *check_label;
     GtkTreeSelection *selection;
 
+    GtkToggleButton * user_check;
+    GtkToggleButton * admin_check;
     GtkWidget * name_entry;
     GtkWidget * add_username_entry;
     GtkWidget * add_password_entry;
@@ -286,18 +312,9 @@ int main(int argc, char *argv[])
     chemistry_entry = GTK_WIDGET(gtk_builder_get_object(builder, "chemistry_entry"));
     confirm_button = GTK_WIDGET(gtk_builder_get_object(builder, "confirm_button"));
     cancel_button = GTK_WIDGET(gtk_builder_get_object(builder, "cancel_button"));
-
-    add_win.window = add_info_window;
-    add_win.name_entry = name_entry;
-    add_win.username_entry = add_username_entry;
-    add_win.password_entry = add_password_entry;
-    add_win.math_entry= math_entry;
-    add_win.physic_entry = physic_entry;
-    add_win.chemistry_entry = chemistry_entry;
-    add_win.confirm_button = confirm_button;
-    add_win.cancel_button = cancel_button;
-    add_win.sockfd = sockfd;
-    add_win.list = list;
+    user_check = GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "user_tickbox"));
+    admin_check = GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "admin_tickbox"));
+    
 
     list = gtk_tree_view_new();
     selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(list));
@@ -310,6 +327,20 @@ int main(int argc, char *argv[])
     
     init_list(list);
     gtk_builder_connect_signals(builder, NULL);
+
+    add_win.window = add_info_window;
+    add_win.name_entry = name_entry;
+    add_win.username_entry = add_username_entry;
+    add_win.password_entry = add_password_entry;
+    add_win.math_entry= math_entry;
+    add_win.physic_entry = physic_entry;
+    add_win.chemistry_entry = chemistry_entry;
+    add_win.confirm_button = confirm_button;
+    add_win.cancel_button = cancel_button;
+    add_win.sockfd = sockfd;
+    add_win.list = list;
+    add_win.admin_check = admin_check;
+    add_win.user_check = user_check;
 
     username_entry = GTK_WIDGET(gtk_builder_get_object(builder, "username"));
     password_entry = GTK_WIDGET(gtk_builder_get_object(builder, "password"));
@@ -361,7 +392,7 @@ void set_greeting(GtkWidget * label, char * name){
 
 void log_in(GtkButton * button, gpointer userdata){
     struct Win *w = (struct Win*)userdata;
-    int sockfd = w->sockfd;
+    int sockfd = w->sockfd, n;
     Account acc;
     char buff[MAX];
     send_request(sockfd, LOGIN);
@@ -372,8 +403,8 @@ void log_in(GtkButton * button, gpointer userdata){
         memcpy(buff, (unsigned char*)&acc, sizeof(acc));
         write(sockfd, buff, sizeof(buff)); 
         bzero(buff, MAX);
-        if (read(sockfd, buff, sizeof(buff)) > 0){
-            if (strcmp(buff, "This account has been loged in in another place.\n") == 0){
+        if ( (n=read(sockfd, buff, sizeof(buff)))> 0){
+            if (strcmp(buff, "This account has been loged in in another place.\n") == 0 || strcmp(buff, "Invalid username or password. Please try again.\n") == 0){
                 printf("%s", buff);
                 gtk_label_set_markup (GTK_LABEL (w->check_label), buff);
             }else{
@@ -400,7 +431,7 @@ void get_list_from_server( int sockfd, GtkWidget * list){
         bzero((unsigned char*)&score, sizeof(score));
         if (read(sockfd, buff, sizeof(buff)) > 0){
             memcpy((unsigned char*)&score, buff, sizeof(score));
-            add_to_list(list, score.id, score.name, score.math, score.physics, score.chemistry);
+            add_to_list(list, score.id, score.name, score.math, score.physics, score.chemistry, score.role);
         }
     }
 }
@@ -449,6 +480,4 @@ void on_window_score_destroy(gpointer userdata)
     gtk_main_quit();
     exit(0);
 }
-
-
 

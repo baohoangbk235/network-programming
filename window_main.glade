@@ -444,6 +444,9 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="label" translatable="yes">(*) Enter username and password to login.</property>
+            <attributes>
+              <attribute name="foreground" value="#efef29292929"/>
+            </attributes>
           </object>
           <packing>
             <property name="x">137</property>

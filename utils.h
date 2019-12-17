@@ -1,7 +1,6 @@
 #include <netdb.h> 
 #include <sys/socket.h> 
 
-#define MAX 80 
 #define PORT 3000 
 #define SA struct sockaddr 
 

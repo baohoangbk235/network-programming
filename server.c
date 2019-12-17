@@ -8,7 +8,6 @@
 #include <mysql/mysql.h>
 #include "database.h"
 #include "utils.h"
-#define MAX 80
 
 static char * host = "localhost";
 static char * usr = "baohg";
@@ -19,12 +18,12 @@ static char * unix_socket = NULL;
 unsigned int flag = 0;
 
 void handle_add_score(int sockfd, MYSQL * conn){
-    char buff[256];
+    char buff[MAX];
     Student st;
     send_request(sockfd, REQ);
-    bzero(buff, 256);
+    bzero(buff, MAX);
     if (read(sockfd, buff, sizeof(buff)) > 0){
-        memcpy((unsigned char*)&st, buff, sizeof(st));
+        memcpy((unsigned char*)&st, buff, sizeof(Student));
         st.id = add_user(st.name, st.username, st.password, st.role, conn);
         add_score(st.id, st.math, st.physic, st.chemistry, conn);
     }
@@ -43,24 +42,27 @@ int handle_login(int sockfd, MYSQL * conn)
     bzero(buff, MAX);
     if (read(sockfd, buff, sizeof(buff)) > 0){
         Account acc;
-        memcpy((unsigned char*)&acc, buff, sizeof(acc));
-        // printf("username : %s\npassword: %s\n", acc.username, acc.password);
+        memcpy((unsigned char*)&acc, buff, sizeof(Account));
         MYSQL_RES * result = get_account_info(acc.username, acc.password, conn);
+        bzero(buff, MAX);
         Info * info = (Info*)fetch_first_result(result, DB_INFO);
-        char buffer[MAX];
-        bzero(buffer, MAX);
-        if (info->status == 0){
-            info->status = 1;
-            set_log_in(info->id, conn);
-            printf("This account has been loged in in another place.\n", info->name);
-            memcpy(buffer,(const unsigned char*)info,sizeof(*info));
-            write(sockfd, buffer, sizeof(buffer));
-            return info->id;
+        if (info != NULL){
+            if (info->status == 0){
+                info->status = 1;
+                set_log_in(info->id, conn);
+                printf("Client %s has been loged in.\n", info->name);
+                bzero(buff, MAX);
+                memcpy(buff,(const unsigned char*)info,sizeof(Info));
+                write(sockfd, buff, sizeof(buff));
+                return info->id;
+            }else{
+                strcpy(buff, "This account has been loged in in another place.\n");
+                write(sockfd, buff, sizeof(buff));
+                return -1;
+            }
         }else{
-            strcpy(buffer, "This account has been loged in in another place.\n");
-            printf("%s\n", buffer);
-            write(sockfd, buffer, sizeof(buffer));
-            return -1;
+            strcpy(buff, "Invalid username or password. Please try again.\n");
+            write(sockfd, buff, sizeof(buff));
         }
         mysql_free_result(result);
     }
@@ -121,7 +123,7 @@ int main()
     // printf("MySQL Server Info: %s \n", mysql_get_server_info(conn));
 
 
-    int sockfd, connfd, len; 
+    int sockfd, connfd; 
     struct sockaddr_in servaddr, cli; 
   
     // socket create and verification 
@@ -217,7 +219,6 @@ int main()
                     client_id[i] = -1;
                     printf("Client %d has been terminated.\n", i);
                 } else{
-                    Func func;
                     switch (atoi(buff)) {
                         case LOGIN:
                             client_id[i] = handle_login(sockfd, conn);
@@ -229,6 +230,7 @@ int main()
 
                         case LOGOUT:
                             handle_log_out(sockfd, conn);
+                            client_id[i] = -1;
                             break;
                         
                         case DEL:

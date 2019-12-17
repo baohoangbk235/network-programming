@@ -1,6 +1,6 @@
 #include<mysql/mysql.h>
 
-#define MAX 80 
+#define MAX 256 
 #define PORT 3000 
 #define SA struct sockaddr 
 enum{
@@ -23,6 +23,7 @@ typedef struct user_score{
     float math;
     float physics;
     float chemistry;
+    int role;
 }Score;
 
 typedef struct {
@@ -30,7 +31,7 @@ typedef struct {
     int num;
 }Scores;
 
-typedef enum{ADMIN=0, USER} Role;
+typedef enum{USER=0, ADMIN} Role;
 
 typedef struct user_info{
     int id;
