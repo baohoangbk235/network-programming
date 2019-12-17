@@ -524,8 +524,8 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkButton" id="edit_button">
-                    <property name="label">gtk-edit</property>
+                  <object class="GtkButton" id="refresh_button">
+                    <property name="label">gtk-refresh</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>

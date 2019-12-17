@@ -58,7 +58,7 @@ typedef struct student{
     float math;
     float physic;
     float chemistry;
-    int role;
+    Role role;
     int status;
 }Student;
 
@@ -80,6 +80,10 @@ MYSQL_RES * get_score_by_id(int id, MYSQL * conn);
 Score * fetch_score_by_id(MYSQL_RES * result);
 
 int get_role_by_id(int id, MYSQL * conn);
+
+int add_user(char*name, char*username, char*password, int role, MYSQL * conn);
+
+void add_score(int id, float math, float physic, float chemistry, MYSQL * conn);
 
 void delete_score(int id, MYSQL * conn);
 

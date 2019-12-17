@@ -18,20 +18,33 @@ unsigned int port = 3306;
 static char * unix_socket = NULL;
 unsigned int flag = 0;
 
-void handle_delete(int sockfd, MYSQL * conn){
+void handle_add_score(int sockfd, MYSQL * conn){
+    char buff[256];
+    Student st;
+    send_request(sockfd, REQ);
+    bzero(buff, 256);
+    if (read(sockfd, buff, sizeof(buff)) > 0){
+        memcpy((unsigned char*)&st, buff, sizeof(st));
+        st.id = add_user(st.name, st.username, st.password, st.role, conn);
+        add_score(st.id, st.math, st.physic, st.chemistry, conn);
+    }
+}
+
+void handle_delete_score(int sockfd, MYSQL * conn){
     send_request(sockfd, REQ);
     int id = receive_num(sockfd);
     delete_score(id, conn);
 }
 
-void handle_login(int sockfd, MYSQL * conn) 
+int handle_login(int sockfd, MYSQL * conn) 
 {   
+    send_request(sockfd, REQ);
     char buff[MAX];
     bzero(buff, MAX);
     if (read(sockfd, buff, sizeof(buff)) > 0){
         Account acc;
         memcpy((unsigned char*)&acc, buff, sizeof(acc));
-        printf("username : %s\npassword: %s\n", acc.username, acc.password);
+        // printf("username : %s\npassword: %s\n", acc.username, acc.password);
         MYSQL_RES * result = get_account_info(acc.username, acc.password, conn);
         Info * info = (Info*)fetch_first_result(result, DB_INFO);
         char buffer[MAX];
@@ -39,18 +52,23 @@ void handle_login(int sockfd, MYSQL * conn)
         if (info->status == 0){
             info->status = 1;
             set_log_in(info->id, conn);
+            printf("This account has been loged in in another place.\n", info->name);
             memcpy(buffer,(const unsigned char*)info,sizeof(*info));
             write(sockfd, buffer, sizeof(buffer));
+            return info->id;
         }else{
             strcpy(buffer, "This account has been loged in in another place.\n");
             printf("%s\n", buffer);
             write(sockfd, buffer, sizeof(buffer));
+            return -1;
         }
         mysql_free_result(result);
     }
+    return -1;
 } 
 
 void handle_check_score(int sockfd, MYSQL * conn){
+    send_request(sockfd, REQ);
     int id = receive_num(sockfd);
     char buffer[MAX];
     MYSQL_RES * result;
@@ -86,7 +104,7 @@ void handle_log_out(int sockfd, MYSQL * conn){
 int main() 
 { 
     int i, maxi, maxfd, listenfd;
-    int nready, client[FD_SETSIZE];
+    int nready, client[__FD_SETSIZE], client_id[__FD_SETSIZE];
     ssize_t n;
     socklen_t clilen;
     MYSQL * conn;
@@ -139,8 +157,10 @@ int main()
     
     maxfd = listenfd;
     maxi = -1;
-    for (int i=0; i < FD_SETSIZE; i++)
+    for (int i=0; i < __FD_SETSIZE; i++){
         client[i] = -1;
+        client_id[i] = -1;
+    }
     
     FD_ZERO(&allset);
     FD_SET(listenfd, &allset);
@@ -158,14 +178,14 @@ int main()
             else
                 printf("server acccept the client...\n");
 
-            for(i=0; i < FD_SETSIZE; i++){
+            for(i=0; i < __FD_SETSIZE; i++){
                 if (client[i] < 0){
                     client[i] = connfd;
                     break;
                 }
             }
             
-            if (i == FD_SETSIZE){
+            if (i == __FD_SETSIZE){
                 printf("Too many clients!\n");
                 exit(1);
             }
@@ -193,17 +213,17 @@ int main()
                     close(sockfd);
                     FD_CLR(sockfd, &allset);
                     client[i] = -1;
+                    set_log_out(client_id[i], conn);
+                    client_id[i] = -1;
                     printf("Client %d has been terminated.\n", i);
                 } else{
                     Func func;
                     switch (atoi(buff)) {
                         case LOGIN:
-                            send_request(sockfd, REQ);
-                            handle_login(sockfd, conn);
+                            client_id[i] = handle_login(sockfd, conn);
                             break;
 
                         case SHOW:
-                            send_request(sockfd, REQ);
                             handle_check_score(sockfd, conn);
                             break;
 
@@ -212,7 +232,11 @@ int main()
                             break;
                         
                         case DEL:
-                            handle_delete(sockfd, conn);
+                            handle_delete_score(sockfd, conn);
+                            break;
+                        
+                        case ADD:
+                            handle_add_score(sockfd, conn);
                             break;
                     }
                 }

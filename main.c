@@ -41,6 +41,8 @@ struct AddWin{
 
     GtkWidget * confirm_button;
     GtkWidget * cancel_button;
+    GtkWidget * list;
+    int sockfd;
 };
 
 GtkWidget       *login_button;
@@ -49,7 +51,7 @@ GtkWidget       *score_button;
 GtkWidget       *log_out_button;
 
 GtkWidget       *add_button;
-GtkWidget       *edit_button;
+GtkWidget       *refresh_button;
 GtkWidget       *delete_button;
 
 GtkWidget       * confirm_button;
@@ -68,6 +70,8 @@ void set_greeting(GtkWidget * label, char * name);
 void log_in(GtkButton * button, gpointer userdata);
 
 void log_out(GtkButton * button, gpointer userdata);
+
+void refresh(GtkButton * button, gpointer userdata);
 
 void init_list(GtkWidget * list){
     GtkCellRenderer *renderer;
@@ -163,6 +167,8 @@ void clear_list(GtkWidget *list){
     gtk_list_store_clear (store);
 }
 
+void get_list_from_server( int socket, GtkWidget * list);
+
 void add_view(GtkButton * button){
     gtk_widget_show_all(add_info_window);
 }
@@ -188,6 +194,7 @@ void delete_view(GtkButton * button, gpointer userdata){
 void add_confirm(GtkButton * button ,gpointer userdata){
     struct AddWin * w = (struct AddWin *) userdata;
     Student st;
+    int sockfd = w->sockfd;
     strcpy(st.username , gtk_entry_get_text(GTK_ENTRY(w->username_entry)));
     strcpy(st.password , gtk_entry_get_text(GTK_ENTRY(w->password_entry)));
     strcpy(st.name , gtk_entry_get_text(GTK_ENTRY(w->name_entry)));
@@ -195,7 +202,17 @@ void add_confirm(GtkButton * button ,gpointer userdata){
     st.math = atof(gtk_entry_get_text(GTK_ENTRY(w->math_entry)));
     st.physic = atof(gtk_entry_get_text(GTK_ENTRY(w->physic_entry)));
     st.chemistry = atof(gtk_entry_get_text(GTK_ENTRY(w->chemistry_entry)));
+    st.role = ADMIN;
+    send_request(sockfd, ADD);
+    char buff[256];
+    if (check_request(sockfd,REQ)){
+        bzero(buff, 256);
+        memcpy(buff, (unsigned char*)&st, sizeof(st));
+        write(sockfd, buff, sizeof(buff));
+    }
+    gtk_widget_hide(add_info_window);
 }
+
 
 void add_cancel(GtkButton * button){
     gtk_widget_hide(add_info_window);
@@ -279,6 +296,8 @@ int main(int argc, char *argv[])
     add_win.chemistry_entry = chemistry_entry;
     add_win.confirm_button = confirm_button;
     add_win.cancel_button = cancel_button;
+    add_win.sockfd = sockfd;
+    add_win.list = list;
 
     list = gtk_tree_view_new();
     selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(list));
@@ -298,7 +317,7 @@ int main(int argc, char *argv[])
     info_button = GTK_WIDGET(gtk_builder_get_object(builder, "view_info_button"));
     log_out_button = GTK_WIDGET(gtk_builder_get_object(builder, "log_out_button"));
     add_button = GTK_WIDGET(gtk_builder_get_object(builder, "add_button"));
-    // edit_button = GTK_WIDGET(gtk_builder_get_object(builder, "edit_button"));
+    refresh_button = GTK_WIDGET(gtk_builder_get_object(builder, "refresh_button"));
     delete_button = GTK_WIDGET(gtk_builder_get_object(builder, "delete_button"));
 
     w.main = window;
@@ -320,6 +339,7 @@ int main(int argc, char *argv[])
 
     g_signal_connect(G_OBJECT (confirm_button), "clicked",G_CALLBACK(add_confirm), &add_win);
     g_signal_connect(G_OBJECT (cancel_button), "clicked",G_CALLBACK(add_cancel), &add_win);
+    g_signal_connect(G_OBJECT (refresh_button), "clicked",G_CALLBACK(refresh), &w);
 
 
     g_object_unref(builder);
@@ -359,26 +379,36 @@ void log_in(GtkButton * button, gpointer userdata){
             }else{
                 memcpy((unsigned char*)&current_sess, buff, sizeof(current_sess));
                 set_greeting(w->label, current_sess.name);
-                Score score;
-                clear_list(w->list); 
-                send_request(sockfd, SHOW);
-                if (check_request(sockfd, REQ))
-                    send_num(current_sess.id, sockfd);
-                int num = receive_num(sockfd);
-                for (int i=0; i< num; i++){
-                    bzero(buff, MAX); 
-                    bzero((unsigned char*)&score, sizeof(score));
-                    if (read(sockfd, buff, sizeof(buff)) > 0){
-                        memcpy((unsigned char*)&score, buff, sizeof(score));
-                        add_to_list(w->list, score.id, score.name, score.math, score.physics, score.chemistry);
-                    }
-                }
+                get_list_from_server(sockfd, w->list);
                 gtk_widget_hide(w->main);    
                 gtk_widget_show_all(w->score);
             }
         }
     }
-    // free(w);
+}
+
+void get_list_from_server( int sockfd, GtkWidget * list){
+    char buff[MAX];
+    Score score;
+    clear_list(list); 
+    send_request(sockfd, SHOW);
+    if (check_request(sockfd, REQ))
+        send_num(current_sess.id, sockfd);
+    int num = receive_num(sockfd);
+    for (int i=0; i< num; i++){
+        bzero(buff, MAX); 
+        bzero((unsigned char*)&score, sizeof(score));
+        if (read(sockfd, buff, sizeof(buff)) > 0){
+            memcpy((unsigned char*)&score, buff, sizeof(score));
+            add_to_list(list, score.id, score.name, score.math, score.physics, score.chemistry);
+        }
+    }
+}
+
+void refresh(GtkButton * button, gpointer userdata){
+    struct Win *w = (struct Win*)userdata;
+    clear_list(w->list);
+    get_list_from_server(w->sockfd, w->list);
 }
 
 void log_out(GtkButton * button, gpointer userdata){

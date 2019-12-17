@@ -34,6 +34,42 @@ void delete_score(int id, MYSQL * conn){
     }
 }
 
+int add_user(char*name, char*username, char*password, int role, MYSQL * conn){
+    char queryString[1024];
+    snprintf(queryString, sizeof(queryString),"INSERT INTO users(name, username, password, role, status) VALUES(\'%s\',\'%s\',\'%s\',%d,%d);", name, username, password, role, 0) ;
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+    snprintf(queryString, sizeof(queryString),"SELECT id FROM users WHERE username = \'%s\' AND password = \'%s\';", username, password);
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        finish_with_error(conn);
+    }
+    MYSQL_ROW row;
+    int id;
+    if (row = mysql_fetch_row(result)){
+        id = atoi(row[0]);
+    }
+    return id;
+}
+
+void add_score(int id,float math, float physic, float chemistry, MYSQL * conn){
+    char queryString[1024];
+    snprintf(queryString, sizeof(queryString),"INSERT INTO scores(id, math, physics, chemistry) VALUES(%d,%.2f,%.2f,%.2f);", id, math, physic, chemistry);
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+}
+
 MYSQL_RES * get_all_scores(MYSQL * conn){
     char queryString[] = "SELECT users.id, users.name, scores.math, scores.physics, scores.chemistry, users.role FROM users INNER JOIN scores WHERE users.id = scores.id;";
     if (mysql_query(conn, queryString)) {
