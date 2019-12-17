@@ -24,6 +24,15 @@ MYSQL_RES * get_scores(int id, MYSQL * conn){
     return result;
 }
 
+void delete_score(int id, MYSQL * conn){
+    char queryString[1024];
+    snprintf(queryString, sizeof(queryString),"DELETE FROM scores WHERE id = %d;", id) ;
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+}
 
 MYSQL_RES * get_all_scores(MYSQL * conn){
     char queryString[] = "SELECT users.id, users.name, scores.math, scores.physics, scores.chemistry, users.role FROM users INNER JOIN scores WHERE users.id = scores.id;";

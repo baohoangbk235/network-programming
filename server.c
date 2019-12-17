@@ -18,6 +18,12 @@ unsigned int port = 3306;
 static char * unix_socket = NULL;
 unsigned int flag = 0;
 
+void handle_delete(int sockfd, MYSQL * conn){
+    send_request(sockfd, REQ);
+    int id = receive_num(sockfd);
+    delete_score(id, conn);
+}
+
 void handle_login(int sockfd, MYSQL * conn) 
 {   
     char buff[MAX];
@@ -203,6 +209,10 @@ int main()
 
                         case LOGOUT:
                             handle_log_out(sockfd, conn);
+                            break;
+                        
+                        case DEL:
+                            handle_delete(sockfd, conn);
                             break;
                     }
                 }

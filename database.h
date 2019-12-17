@@ -12,6 +12,8 @@ typedef enum{
     LOGIN=0,
     LOGOUT,
     SHOW,
+    DEL,
+    ADD,
     REQ
 }Func;
 
@@ -48,6 +50,17 @@ typedef struct request{
     char param_str[32];
 }Request;
 
+typedef struct student{
+    int id;
+    char name[32];
+    char username[32];
+    char password[32];
+    float math;
+    float physic;
+    float chemistry;
+    int role;
+    int status;
+}Student;
 
 MYSQL_RES * get_scores(int id, MYSQL * conn);
 MYSQL_RES * get_account_info(char * username, char * password, MYSQL * conn);
@@ -60,8 +73,6 @@ Info * fetch_info(MYSQL_ROW row);
 void * fetch_first_result(MYSQL_RES * result, int flag);
 Scores * fetch_all_scores(MYSQL_RES * result);
 
-void finish_with_error(MYSQL *con);
-
 void set_log_in(int id, MYSQL * conn);
 void set_log_out(int id, MYSQL * conn);
 
@@ -69,3 +80,7 @@ MYSQL_RES * get_score_by_id(int id, MYSQL * conn);
 Score * fetch_score_by_id(MYSQL_RES * result);
 
 int get_role_by_id(int id, MYSQL * conn);
+
+void delete_score(int id, MYSQL * conn);
+
+void finish_with_error(MYSQL *con);
