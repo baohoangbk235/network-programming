@@ -44,27 +44,28 @@ void handle_login(int sockfd, MYSQL * conn)
     }
 } 
 
-void handle_check_score(int id, int sockfd, MYSQL * conn){
+void handle_check_score(int sockfd, MYSQL * conn){
+    int id = receive_num(sockfd);
     char buffer[MAX];
     MYSQL_RES * result;
-    Score * user;
-    Scores * users = (Scores*)malloc(sizeof(Scores));
+    Score * score;
+    Scores * scores = (Scores*)malloc(sizeof(Scores));
     int  num;
     int role = get_role_by_id(id, conn);
     if (role == 0){
         result = get_score_by_id(id, conn);
-        users->list[0] = fetch_score_by_id(result);
-        users->num = 1;
+        scores->list[0] = fetch_score_by_id(result);
+        scores->num = 1;
     }else{
         result = get_all_scores(conn);
-        users =  fetch_all_scores(result);
+        scores =  fetch_all_scores(result);
     }
-    num = users->num;
+    num = scores->num;
     send_num(num, sockfd);
     for(int i=0; i < num; i++){        
         bzero(buffer, MAX);
-        user = users->list[i];
-        memcpy(buffer,(unsigned char*)user,sizeof(Score));
+        score = scores->list[i];
+        memcpy(buffer,(unsigned char*)score,sizeof(Score));
         write(sockfd, buffer, sizeof(buffer));
     }
     mysql_free_result(result);
@@ -197,8 +198,7 @@ int main()
 
                         case SHOW:
                             send_request(sockfd, REQ);
-                            int id = receive_num(sockfd);
-                            handle_check_score(id, sockfd, conn);
+                            handle_check_score(sockfd, conn);
                             break;
 
                         case LOGOUT:

@@ -28,6 +28,19 @@ struct Win {
     int sockfd;
 };
 
+struct AddWin{
+    GtkWidget * window;
+    GtkWidget * name_entry;
+    GtkWidget * username_entry;
+    GtkWidget * password_entry;
+    GtkWidget * math_entry;
+    GtkWidget * physic_entry;
+    GtkWidget * chemistry_entry;
+
+    GtkWidget * confirm_button;
+    GtkWidget * cancel_button;
+};
+
 GtkWidget       *username_entry;
 GtkWidget       *password_entry;
 GtkWidget       *login_button;
@@ -38,18 +51,16 @@ GtkWidget       *log_out_button;
 GtkWidget       *add_button;
 GtkWidget       *edit_button;
 GtkWidget       *delete_button;
-
+GtkWidget       *window;
+GtkWidget       *window_score;
 GtkWidget       *add_info_window;
+
 
 Info current_sess = {-1, "", -1, -1};
 
 void set_greeting(GtkWidget * label, char * name);
 
-void buttonFunction(GtkButton * button, gpointer userdata);
-
 void log_in(GtkButton * button, gpointer userdata);
-
-void show_scores(GtkButton * Button, gpointer userdata);
 
 void log_out(GtkButton * button, gpointer userdata);
 
@@ -65,6 +76,8 @@ void init_list(GtkWidget * list){
     gtk_widget_set_vexpand (GTK_WIDGET (list), TRUE);
     
     renderer = gtk_cell_renderer_text_new ();
+    // g_object_set(renderer, "editable", TRUE, NULL);
+
     id_column = gtk_tree_view_column_new_with_attributes("ID",
           renderer, "text", COLUMN_ID, NULL);
     gtk_tree_view_column_set_sort_column_id (id_column, COLUMN_ID);
@@ -145,6 +158,32 @@ void clear_list(GtkWidget *list){
     gtk_list_store_clear (store);
 }
 
+void add_view(GtkButton * button, gpointer userdata){
+    struct AddWin * w = (struct AddWin*)userdata; 
+    gtk_widget_show_all(GTK_WIDGET(w->window));
+}
+
+void delete_view(GtkButton * button, gpointer userdata){
+    struct Win *w = (struct Win*)userdata;
+    GtkTreeIter iter;
+    GtkTreeModel *model;
+    gchar *value;
+    if (gtk_tree_selection_get_selected(
+        GTK_TREE_SELECTION(w->selection), &model, &iter)) {
+    // gtk_tree_model_get(model, &iter, COLUMN_NAME, &value,  -1);
+    // printf("%s\n", value);
+    gtk_list_store_remove(model, &iter);
+    g_free(value);
+  }
+}
+
+void add_confirm(GtkButton * button ,gpointer userdata){
+
+}
+
+void add_cancel(GtkButton * button ,gpointer userdata){
+}
+
 int main(int argc, char *argv[])
 {   
     int sockfd; 
@@ -173,15 +212,24 @@ int main(int argc, char *argv[])
         printf("connected to the server..\n"); 
 
     GtkBuilder      *builder; 
-    GtkWidget       *window;
-    GtkWidget       *window_score;
+
     GtkWidget       *list;
     GtkWidget       *vbox;
     GtkWidget       *label;
     GtkWidget       *check_label;
     GtkTreeSelection *selection;
 
+    GtkWidget * name_entry;
+    GtkWidget * add_username_entry;
+    GtkWidget * add_password_entry;
+    GtkWidget * math_entry;
+    GtkWidget * physic_entry;
+    GtkWidget * chemistry_entry;
+    GtkWidget * confirm_button;
+    GtkWidget * cancel_button;
+
     struct Win w;
+    struct AddWin add_win;
 
     gtk_init(&argc, &argv);
 
@@ -189,15 +237,36 @@ int main(int argc, char *argv[])
     gtk_builder_add_from_file (builder, "window_main.glade", NULL);
 
     window = GTK_WIDGET(gtk_builder_get_object(builder, "window_main"));
+    gtk_window_set_title(GTK_WINDOW(window), "Login");
     add_info_window = GTK_WIDGET(gtk_builder_get_object(builder, "add_info_window"));
+    gtk_window_set_title(GTK_WINDOW(add_info_window), "Add user");
     window_score = GTK_WIDGET(gtk_builder_get_object(builder, "window_score"));
     vbox = GTK_WIDGET(gtk_builder_get_object(builder, "my_box"));
     label = GTK_WIDGET(gtk_builder_get_object(builder, "my_label"));
     check_label = GTK_WIDGET(gtk_builder_get_object(builder, "check_label"));
 
+    name_entry = GTK_WIDGET(gtk_builder_get_object(builder, "name_entry"));
+    add_username_entry = GTK_WIDGET(gtk_builder_get_object(builder, "username_entry"));
+    add_password_entry = GTK_WIDGET(gtk_builder_get_object(builder, "password_entry"));
+    math_entry = GTK_WIDGET(gtk_builder_get_object(builder, "math_entry"));
+    physic_entry = GTK_WIDGET(gtk_builder_get_object(builder, "physic_entry"));
+    chemistry_entry = GTK_WIDGET(gtk_builder_get_object(builder, "chemistry_entry"));
+    confirm_button = GTK_WIDGET(gtk_builder_get_object(builder, "confirm_button"));
+    cancel_button = GTK_WIDGET(gtk_builder_get_object(builder, "cancel_button"));
+
+    add_win.window = add_info_window;
+    add_win.name_entry = name_entry;
+    add_win.username_entry = add_username_entry;
+    add_win.password_entry = add_password_entry;
+    add_win.math_entry= math_entry;
+    add_win.physic_entry = physic_entry;
+    add_win.chemistry_entry = chemistry_entry;
+    add_win.confirm_button = confirm_button;
+    add_win.cancel_button = cancel_button;
+
     list = gtk_tree_view_new();
     selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(list));
-    gtk_tree_selection_set_mode(selection, GTK_SELECTION_MULTIPLE);
+    // gtk_tree_selection_set_mode(selection, GTK_SELECTION_MULTIPLE);
 
     gtk_window_set_position(GTK_WINDOW(window_score), GTK_WIN_POS_CENTER);
     gtk_container_set_border_width(GTK_CONTAINER(window_score), 10);
@@ -212,9 +281,9 @@ int main(int argc, char *argv[])
     login_button = GTK_WIDGET(gtk_builder_get_object(builder, "login_button"));
     info_button = GTK_WIDGET(gtk_builder_get_object(builder, "view_info_button"));
     log_out_button = GTK_WIDGET(gtk_builder_get_object(builder, "log_out_button"));
-    // add_button = GTK_WIDGET(gtk_builder_get_object(builder, "add_button"));
+    add_button = GTK_WIDGET(gtk_builder_get_object(builder, "add_button"));
     // edit_button = GTK_WIDGET(gtk_builder_get_object(builder, "edit_button"));
-    // delete_button = GTK_WIDGET(gtk_builder_get_object(builder, "delete_button"));
+    delete_button = GTK_WIDGET(gtk_builder_get_object(builder, "delete_button"));
 
     w.main = window;
     w.score = window_score;
@@ -226,9 +295,14 @@ int main(int argc, char *argv[])
 
     g_signal_connect(G_OBJECT(login_button), "clicked", G_CALLBACK(log_in), &w);
     g_signal_connect(G_OBJECT (window_score), "destroy",G_CALLBACK(gtk_main_quit), &w);
+    g_signal_connect(G_OBJECT (window), "destroy",G_CALLBACK(gtk_main_quit), &w);
     g_signal_connect(G_OBJECT (log_out_button), "clicked",G_CALLBACK(log_out), &w);
-    // g_signal_connect(G_OBJECT (add_button), "clicked",G_CALLBACK(add_view), add_info_window);
-    // g_signal_connect(G_OBJECT (delete_button), "clicked",G_CALLBACK(delete_view), &w);
+    g_signal_connect(G_OBJECT (add_button), "clicked",G_CALLBACK(add_view), add_info_window);
+    g_signal_connect(G_OBJECT (delete_button), "clicked",G_CALLBACK(delete_view), &w);
+
+    g_signal_connect(G_OBJECT (confirm_button), "clicked",G_CALLBACK(add_confirm), &add_win);
+    g_signal_connect(G_OBJECT (cancel_button), "clicked",G_CALLBACK(add_cancel), &add_win);
+
 
     g_object_unref(builder);
 
@@ -266,7 +340,7 @@ void log_in(GtkButton * button, gpointer userdata){
             }else{
                 memcpy((unsigned char*)&current_sess, buff, sizeof(current_sess));
                 set_greeting(w->label, current_sess.name);
-                Score user;
+                Score score;
                 clear_list(w->list); 
                 send_request(sockfd, SHOW);
                 if (check_request(sockfd, REQ))
@@ -274,10 +348,10 @@ void log_in(GtkButton * button, gpointer userdata){
                 int num = receive_num(sockfd);
                 for (int i=0; i< num; i++){
                     bzero(buff, MAX); 
-                    bzero((unsigned char*)&user, sizeof(user));
+                    bzero((unsigned char*)&score, sizeof(score));
                     if (read(sockfd, buff, sizeof(buff)) > 0){
-                        memcpy((unsigned char*)&user, buff, sizeof(user));
-                        add_to_list(w->list, user.id, user.name, user.math, user.physics, user.chemistry);
+                        memcpy((unsigned char*)&score, buff, sizeof(score));
+                        add_to_list(w->list, score.id, score.name, score.math, score.physics, score.chemistry);
                     }
                 }
                 gtk_widget_hide(w->main);    
@@ -285,24 +359,6 @@ void log_in(GtkButton * button, gpointer userdata){
             }
         }
     }
-}
-
-
-// called when window is closed
-void on_window_main_destroy()
-{
-    gtk_main_quit();
-}
-
-void on_window_score_destroy(gpointer userdata)
-{   
-    struct Win *w = (struct Win*)userdata;
-    int sockfd = w->sockfd;
-    char buff[MAX];
-    bzero(buff, MAX);
-    write(sockfd, buff, sizeof(buff));
-    gtk_main_quit();
-    exit(0);
 }
 
 void log_out(GtkButton * button, gpointer userdata){
@@ -320,4 +376,29 @@ void log_out(GtkButton * button, gpointer userdata){
         current_sess.status = -1;
     }
 }
+
+// called when window is closed
+void on_window_main_destroy(gpointer userdata)
+{
+    struct Win *w = (struct Win*)userdata;
+    int sockfd = w->sockfd;
+    char buff[MAX];
+    bzero(buff, MAX);
+    write(sockfd, buff, sizeof(buff));
+    gtk_main_quit();
+    exit(0);
+}
+
+void on_window_score_destroy(gpointer userdata)
+{   
+    struct Win *w = (struct Win*)userdata;
+    int sockfd = w->sockfd;
+    char buff[MAX];
+    bzero(buff, MAX);
+    write(sockfd, buff, sizeof(buff));
+    gtk_main_quit();
+    exit(0);
+}
+
+
 
