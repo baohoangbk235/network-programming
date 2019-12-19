@@ -30,7 +30,7 @@ struct Win {
     int sockfd;
 };
 
-struct AddWin{
+struct AddingWin{
     GtkWidget * window;
     GtkWidget * name_entry;
     GtkWidget * username_entry;
@@ -189,13 +189,13 @@ void clear_list(GtkWidget *list){
     gtk_list_store_clear (store);
 }
 
-void get_list_from_server( int socket, GtkWidget * list);
+void get_score_list_from_server( int socket, GtkWidget * list);
 
 void add_view(GtkButton * button){
     gtk_widget_show_all(add_info_window);
 }
 
-void delete_view(GtkButton * button, gpointer userdata){
+void delete_selected_row(GtkButton * button, gpointer userdata){
     struct Win *w = (struct Win*)userdata;
     GtkTreeIter iter;
     GtkTreeModel *model;
@@ -213,7 +213,7 @@ void delete_view(GtkButton * button, gpointer userdata){
 }
 
 void add_confirm(GtkButton * button ,gpointer userdata){
-    struct AddWin * w = (struct AddWin *) userdata;
+    struct AddingWin * w = (struct AddingWin *) userdata;
     Student st;
     int sockfd = w->sockfd;
     strcpy(st.username , gtk_entry_get_text(GTK_ENTRY(w->username_entry)));
@@ -288,7 +288,7 @@ int main(int argc, char *argv[])
     GtkWidget * chemistry_entry;
 
     struct Win w;
-    struct AddWin add_win;
+    struct AddingWin add_win;
 
     gtk_init(&argc, &argv);
 
@@ -366,12 +366,11 @@ int main(int argc, char *argv[])
     g_signal_connect(G_OBJECT (window), "destroy",G_CALLBACK(gtk_main_quit), &w);
     g_signal_connect(G_OBJECT (log_out_button), "clicked",G_CALLBACK(log_out), &w);
     g_signal_connect(G_OBJECT (add_button), "clicked",G_CALLBACK(add_view), NULL);
-    g_signal_connect(G_OBJECT (delete_button), "clicked",G_CALLBACK(delete_view), &w);
+    g_signal_connect(G_OBJECT (delete_button), "clicked",G_CALLBACK(delete_selected_row), &w);
 
     g_signal_connect(G_OBJECT (confirm_button), "clicked",G_CALLBACK(add_confirm), &add_win);
     g_signal_connect(G_OBJECT (cancel_button), "clicked",G_CALLBACK(add_cancel), &add_win);
     g_signal_connect(G_OBJECT (refresh_button), "clicked",G_CALLBACK(refresh), &w);
-
 
     g_object_unref(builder);
 
@@ -380,6 +379,7 @@ int main(int argc, char *argv[])
     close(sockfd); 
     return 0;
 }
+
 
 void set_greeting(GtkWidget * label, char * name){
     char greeting[128];
@@ -410,7 +410,7 @@ void log_in(GtkButton * button, gpointer userdata){
             }else{
                 memcpy((unsigned char*)&current_sess, buff, sizeof(current_sess));
                 set_greeting(w->label, current_sess.name);
-                get_list_from_server(sockfd, w->list);
+                get_score_list_from_server(sockfd, w->list);
                 gtk_widget_hide(w->main);    
                 gtk_widget_show_all(w->score);
             }
@@ -418,7 +418,7 @@ void log_in(GtkButton * button, gpointer userdata){
     }
 }
 
-void get_list_from_server( int sockfd, GtkWidget * list){
+void get_score_list_from_server( int sockfd, GtkWidget * list){
     char buff[MAX];
     Score score;
     clear_list(list); 
@@ -439,7 +439,7 @@ void get_list_from_server( int sockfd, GtkWidget * list){
 void refresh(GtkButton * button, gpointer userdata){
     struct Win *w = (struct Win*)userdata;
     clear_list(w->list);
-    get_list_from_server(w->sockfd, w->list);
+    get_score_list_from_server(w->sockfd, w->list);
 }
 
 void log_out(GtkButton * button, gpointer userdata){

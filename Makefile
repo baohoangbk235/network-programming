@@ -1,4 +1,4 @@
-DEPS = database.h utils.h
+DEPS = database.h utils.h 
 CFLAGS = `pkg-config --cflags gtk+-3.0` -Wall -rdynamic  `mysql_config --cflags`
 LIBS = `pkg-config --libs gtk+-3.0` `mysql_config --libs` 
 

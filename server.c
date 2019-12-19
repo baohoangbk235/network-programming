@@ -95,6 +95,8 @@ void handle_check_score(int sockfd, MYSQL * conn){
         write(sockfd, buffer, sizeof(buffer));
     }
     mysql_free_result(result);
+    free(scores);
+    free(score);
 }
 
 void handle_log_out(int sockfd, MYSQL * conn){
@@ -166,6 +168,7 @@ int main()
     
     FD_ZERO(&allset);
     FD_SET(listenfd, &allset);
+    char buff[MAX]; 
     for ( ; ; ){
         rset = allset;
         nready = select(maxfd+1, &rset, NULL, NULL, NULL);
@@ -202,15 +205,12 @@ int main()
             if (--nready <= 0)
                 continue;
         }
-
         for (i=0; i <= maxi; i++){
+            bzero(buff, MAX); 
             if ((sockfd = client[i]) < 0){
                 continue;
             }
-
             if (FD_ISSET(sockfd, &rset)){
-                char buff[MAX]; 
-                bzero(buff, MAX); 
                 if ((n=read(sockfd, buff, sizeof(buff))) == 0){
                     close(sockfd);
                     FD_CLR(sockfd, &allset);

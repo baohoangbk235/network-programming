@@ -194,7 +194,7 @@ Scores * fetch_all_scores(MYSQL_RES * result){
     int count = 0;
     while ((row = mysql_fetch_row(result))){
         // for(int i = 0; i < num_fields; i++){ 
-            // printf("%s ", row[i] ? row[i] : "NULL"); 
+        //     printf("%s ", row[i] ? row[i] : "NULL"); 
         // } 
         listUser->list[count] = fetch_score(row);
         count ++;
