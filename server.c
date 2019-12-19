@@ -8,7 +8,6 @@
 #include <mysql/mysql.h>
 #include "database.h"
 #include "utils.h"
-#define MAX 80
 
 static char * host = "localhost";
 static char * usr = "baohg";
@@ -18,53 +17,81 @@ unsigned int port = 3306;
 static char * unix_socket = NULL;
 unsigned int flag = 0;
 
-void handle_login(int sockfd, MYSQL * conn) 
+void handle_add_score(int sockfd, MYSQL * conn){
+    char buff[MAX];
+    Student st;
+    send_request(sockfd, REQ);
+    bzero(buff, MAX);
+    if (read(sockfd, buff, sizeof(buff)) > 0){
+        memcpy((unsigned char*)&st, buff, sizeof(Student));
+        st.id = add_user(st.name, st.username, st.password, st.role, conn);
+        add_score(st.id, st.math, st.physic, st.chemistry, conn);
+    }
+}
+
+void handle_delete_score(int sockfd, MYSQL * conn){
+    send_request(sockfd, REQ);
+    int id = receive_num(sockfd);
+    delete_score(id, conn);
+}
+
+int handle_login(int sockfd, MYSQL * conn) 
 {   
+    send_request(sockfd, REQ);
     char buff[MAX];
     bzero(buff, MAX);
     if (read(sockfd, buff, sizeof(buff)) > 0){
         Account acc;
-        memcpy((unsigned char*)&acc, buff, sizeof(acc));
-        printf("username : %s\npassword: %s\n", acc.username, acc.password);
+        memcpy((unsigned char*)&acc, buff, sizeof(Account));
         MYSQL_RES * result = get_account_info(acc.username, acc.password, conn);
+        bzero(buff, MAX);
         Info * info = (Info*)fetch_first_result(result, DB_INFO);
-        char buffer[MAX];
-        bzero(buffer, MAX);
-        if (info->status == 0){
-            info->status = 1;
-            set_log_in(info->id, conn);
-            memcpy(buffer,(const unsigned char*)info,sizeof(*info));
-            write(sockfd, buffer, sizeof(buffer));
+        if (info != NULL){
+            if (info->status == 0){
+                info->status = 1;
+                set_log_in(info->id, conn);
+                printf("Client %s has been loged in.\n", info->name);
+                bzero(buff, MAX);
+                memcpy(buff,(const unsigned char*)info,sizeof(Info));
+                write(sockfd, buff, sizeof(buff));
+                return info->id;
+            }else{
+                strcpy(buff, "This account has been loged in in another place.\n");
+                write(sockfd, buff, sizeof(buff));
+                return -1;
+            }
         }else{
-            strcpy(buffer, "This account has been loged in in another place.\n");
-            printf("%s\n", buffer);
-            write(sockfd, buffer, sizeof(buffer));
+            strcpy(buff, "Invalid username or password. Please try again.\n");
+            write(sockfd, buff, sizeof(buff));
         }
         mysql_free_result(result);
     }
+    return -1;
 } 
 
-void handle_check_score(int id, int sockfd, MYSQL * conn){
+void handle_check_score(int sockfd, MYSQL * conn){
+    send_request(sockfd, REQ);
+    int id = receive_num(sockfd);
     char buffer[MAX];
     MYSQL_RES * result;
-    Score * user;
-    Scores * users = (Scores*)malloc(sizeof(Scores));
+    Score * score;
+    Scores * scores = (Scores*)malloc(sizeof(Scores));
     int  num;
     int role = get_role_by_id(id, conn);
     if (role == 0){
         result = get_score_by_id(id, conn);
-        users->list[0] = fetch_score_by_id(result);
-        users->num = 1;
+        scores->list[0] = fetch_score_by_id(result);
+        scores->num = 1;
     }else{
         result = get_all_scores(conn);
-        users =  fetch_all_scores(result);
+        scores =  fetch_all_scores(result);
     }
-    num = users->num;
+    num = scores->num;
     send_num(num, sockfd);
     for(int i=0; i < num; i++){        
         bzero(buffer, MAX);
-        user = users->list[i];
-        memcpy(buffer,(unsigned char*)user,sizeof(Score));
+        score = scores->list[i];
+        memcpy(buffer,(unsigned char*)score,sizeof(Score));
         write(sockfd, buffer, sizeof(buffer));
     }
     mysql_free_result(result);
@@ -79,7 +106,7 @@ void handle_log_out(int sockfd, MYSQL * conn){
 int main() 
 { 
     int i, maxi, maxfd, listenfd;
-    int nready, client[FD_SETSIZE];
+    int nready, client[__FD_SETSIZE], client_id[__FD_SETSIZE];
     ssize_t n;
     socklen_t clilen;
     MYSQL * conn;
@@ -96,7 +123,7 @@ int main()
     // printf("MySQL Server Info: %s \n", mysql_get_server_info(conn));
 
 
-    int sockfd, connfd, len; 
+    int sockfd, connfd; 
     struct sockaddr_in servaddr, cli; 
   
     // socket create and verification 
@@ -132,8 +159,10 @@ int main()
     
     maxfd = listenfd;
     maxi = -1;
-    for (int i=0; i < FD_SETSIZE; i++)
+    for (int i=0; i < __FD_SETSIZE; i++){
         client[i] = -1;
+        client_id[i] = -1;
+    }
     
     FD_ZERO(&allset);
     FD_SET(listenfd, &allset);
@@ -151,14 +180,14 @@ int main()
             else
                 printf("server acccept the client...\n");
 
-            for(i=0; i < FD_SETSIZE; i++){
+            for(i=0; i < __FD_SETSIZE; i++){
                 if (client[i] < 0){
                     client[i] = connfd;
                     break;
                 }
             }
             
-            if (i == FD_SETSIZE){
+            if (i == __FD_SETSIZE){
                 printf("Too many clients!\n");
                 exit(1);
             }
@@ -186,23 +215,30 @@ int main()
                     close(sockfd);
                     FD_CLR(sockfd, &allset);
                     client[i] = -1;
+                    set_log_out(client_id[i], conn);
+                    client_id[i] = -1;
                     printf("Client %d has been terminated.\n", i);
                 } else{
-                    Func func;
                     switch (atoi(buff)) {
                         case LOGIN:
-                            send_request(sockfd, REQ);
-                            handle_login(sockfd, conn);
+                            client_id[i] = handle_login(sockfd, conn);
                             break;
 
                         case SHOW:
-                            send_request(sockfd, REQ);
-                            int id = receive_num(sockfd);
-                            handle_check_score(id, sockfd, conn);
+                            handle_check_score(sockfd, conn);
                             break;
 
                         case LOGOUT:
                             handle_log_out(sockfd, conn);
+                            client_id[i] = -1;
+                            break;
+                        
+                        case DEL:
+                            handle_delete_score(sockfd, conn);
+                            break;
+                        
+                        case ADD:
+                            handle_add_score(sockfd, conn);
                             break;
                     }
                 }

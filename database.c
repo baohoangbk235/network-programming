@@ -24,6 +24,51 @@ MYSQL_RES * get_scores(int id, MYSQL * conn){
     return result;
 }
 
+void delete_score(int id, MYSQL * conn){
+    char queryString[1024];
+    snprintf(queryString, sizeof(queryString),"DELETE FROM scores WHERE id = %d;", id) ;
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+}
+
+int add_user(char*name, char*username, char*password, int role, MYSQL * conn){
+    char queryString[1024];
+    snprintf(queryString, sizeof(queryString),"INSERT INTO users(name, username, password, role, status) VALUES(\'%s\',\'%s\',\'%s\',%d,%d);", name, username, password, role, 0) ;
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+    snprintf(queryString, sizeof(queryString),"SELECT id FROM users WHERE username = \'%s\' AND password = \'%s\';", username, password);
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (result == NULL) {
+        finish_with_error(conn);
+    }
+    MYSQL_ROW row;
+    int id;
+    if ((row = mysql_fetch_row(result))){
+        id = atoi(row[0]);
+    }
+    return id;
+}
+
+void add_score(int id,float math, float physic, float chemistry, MYSQL * conn){
+    char queryString[1024];
+    snprintf(queryString, sizeof(queryString),"INSERT INTO scores(id, math, physics, chemistry) VALUES(%d,%.2f,%.2f,%.2f);", id, math, physic, chemistry);
+    if (mysql_query(conn, queryString)) {
+      fprintf(stderr, "%s\n", mysql_error(conn));
+      mysql_close(conn);
+      exit(1);
+    }
+}
 
 MYSQL_RES * get_all_scores(MYSQL * conn){
     char queryString[] = "SELECT users.id, users.name, scores.math, scores.physics, scores.chemistry, users.role FROM users INNER JOIN scores WHERE users.id = scores.id;";
@@ -55,9 +100,7 @@ MYSQL_RES * get_score_by_id(int id, MYSQL * conn){
 }
 
 Score * fetch_score_by_id(MYSQL_RES * result){
-    int num_fields = mysql_num_fields(result);
     MYSQL_ROW row;
-    MYSQL_FIELD *field;
     if ((row = mysql_fetch_row(result))){
         return fetch_score(row);
     } 
@@ -73,9 +116,6 @@ MYSQL_RES * get_account_info(char * username, char * password, MYSQL * conn){
       exit(1);
     }
     MYSQL_RES *result = mysql_store_result(conn);
-    if (result == NULL) {
-        finish_with_error(conn);
-    }
     return result;
 }
 
@@ -105,7 +145,7 @@ void fetchAllResult(MYSQL_RES * result){
     {   
         for(int i = 0; i < num_fields; i++) { 
             if (i == 0) {              
-                while(field = mysql_fetch_field(result)) 
+                while((field = mysql_fetch_field(result))) 
                 {
                     printf("%s ", field->name);
                 }        
@@ -124,7 +164,7 @@ Score * fetch_score(MYSQL_ROW row){
     sscanf(row[2], "%f", &new->math);
     sscanf(row[3], "%f", &new->physics);
     sscanf(row[4], "%f", &new->chemistry); 
-    // printf("%2.f %.2f %.2f\n", new->math, new->physics, new->chemistry);
+    new->role = atoi(row[5]);
     return new;
 }   
 
@@ -134,10 +174,9 @@ void * fetch_first_result(MYSQL_RES * result, int flag){
     MYSQL_ROW row;
     // mysql_fetch_row(result);
     if ((row = mysql_fetch_row(result))){
-        for(int i = 0; i < num_fields; i++){ 
-            printf("%s ", row[i] ? row[i] : "NULL"); 
-        } 
-        printf("\n"); 
+        // for(int i = 0; i < num_fields; i++){ 
+            // printf("%s ", row[i] ? row[i] : "NULL"); 
+        // } 
         switch(flag){
             case DB_INFO: 
                 return fetch_info(row);
@@ -154,14 +193,14 @@ Scores * fetch_all_scores(MYSQL_RES * result){
     Scores * listUser = (Scores*)malloc(sizeof(listUser));
     int count = 0;
     while ((row = mysql_fetch_row(result))){
-        for(int i = 0; i < num_fields; i++){ 
-            printf("%s ", row[i] ? row[i] : "NULL"); 
-        } 
+        // for(int i = 0; i < num_fields; i++){ 
+            // printf("%s ", row[i] ? row[i] : "NULL"); 
+        // } 
         listUser->list[count] = fetch_score(row);
         count ++;
         if (count == 10)
             break;
-        printf("\n"); 
+        // printf("\n"); 
     }
     listUser->num = count;
     return listUser;
